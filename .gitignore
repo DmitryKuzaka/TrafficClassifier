@@ -1,0 +1,28 @@
+# Python and local tooling
+/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+/build/
+/dist/
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+
+# Datasets and trained models
+/data/*
+!/data/.gitkeep
+/models/
+/artifacts/
+*.h5
+*.hdf5
+*.pcap
+*.pcapng
+*.pt
+*.pth
+*.ckpt
+*.safetensors
