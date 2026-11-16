@@ -164,7 +164,7 @@ class FlowDataset(Dataset):
         return self.features[index], self.mask[index], self.labels[index]
 
 
-def make_loader(dataset: FlowDataset, batch_size: int, *, shuffle: bool = False) -> DataLoader:
+def make_loader(dataset: Dataset, batch_size: int, *, shuffle: bool = False) -> DataLoader:
     generator = torch.Generator().manual_seed(SEED)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, generator=generator)
 
