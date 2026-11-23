@@ -1,5 +1,6 @@
 # Python and local tooling
 /.venv/
+/.uv-cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -7,6 +8,17 @@ __pycache__/
 *.egg-info/
 /build/
 /dist/
+
+# IDE and OS files
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local documentation, Jira exports, and generated code graphs
+/docs/
+/.understand-anything/
 
 # Local settings and secrets
 .env
@@ -22,7 +34,9 @@ __pycache__/
 *.hdf5
 *.pcap
 *.pcapng
+*.npz
 *.pt
 *.pth
 *.ckpt
 *.safetensors
+*.joblib

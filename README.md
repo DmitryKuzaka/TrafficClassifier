@@ -1,53 +1,76 @@
 # TrafficClassifier
 
-Учебный проект по ранней классификации сетевых потоков. Собственная 1D-CNN различает видео, голосовые звонки и передачу файлов по размерам, направлениям и интервалам первых пакетов. Качество измерено на 8, 16, 32 и 64 пакетах. ClickHouse будет хранить потоки и предсказания для аналитики.
+Учебный проект по раннему распознаванию сетевого трафика. По первым пакетам потока собственная **1D-CNN** определяет один из трёх классов: видео, голосовой звонок или передача файла.
 
-## Пробная версия
+Модель получает размеры пакетов, направления относительно первого пакета и интервалы между соседними пакетами. **ClickHouse** хранит подготовленные потоки и позволяет анализировать импорт по классам, захватам и длине. **PyTorch** обучает нейросеть. Для сравнения **Random Forest** получает сводные признаки по тем же пакетам.
 
-Из папки проекта запусти окно с сохранённой CNN на первых восьми пакетах:
+## Результаты
+
+Macro-F1 на 1 993 потоках из отложенных захватов VNAT. Для всех вариантов использовали одно групповое разбиение. Короткие потоки обрабатывали по фактически доступным пакетам.
+
+| Первые N пакетов | 1D-CNN | Random Forest |
+|---:|---:|---:|
+| 8 | 0,9147 | 0,9751 |
+| 16 | 0,8919 | 0,9780 |
+| 32 | 0,8889 | 0,9780 |
+| 64 | 0,8632 | 0,9780 |
+
+Для пробного окна выбрана CNN на восьми пакетах по оценке на validation. Random Forest показал более высокий macro-F1 на этих отложенных захватах. Все 102 тестовых звонка относятся к одному захвату, поэтому результат отражает условия эксперимента на VNAT.
+
+## Быстрый запуск
+
+Понадобятся Python 3.13 и [uv](https://docs.astral.sh/uv/). Выполни команды из корня репозитория. Вторая команда покажет формы тензоров и выход CNN на искусственных данных.
+
+```powershell
+uv sync --locked
+uv run --locked -m traffic_classifier.ml.cnn
+```
+
+## Данные и обучение
+
+Для подготовки данных нужен Docker с Compose. Скачай `VNAT_Dataframe_release_1.h5` и положи его в `data/`. Нужен релиз с готовыми последовательностями пакетов, размер файла около 1 ГБ. [Датасет VNAT на сайте MIT Lincoln Laboratory](https://www.ll.mit.edu/r-d/datasets/vpnnonvpn-network-application-traffic-dataset-vnat).
+
+Скопируй `.env.example` в `.env` и задай значение `CLICKHOUSE_PASSWORD` в копии. Затем запусти базу и подготовь данные.
+
+```powershell
+docker compose up -d --wait
+uv run --locked -m traffic_classifier.import_vnat data/VNAT_Dataframe_release_1.h5
+uv run --locked -m traffic_classifier.ml.vnat_split
+uv run --locked -m traffic_classifier.ml.dataset
+uv run --locked -m traffic_classifier.ml.normalization
+```
+
+На свежем клоне обучи обе модели и зафиксируй выбор по validation. Команда `freeze` сама создаст локальный файл протокола `docs/prefix-study-protocol.json`.
+
+```powershell
+uv run --locked -m traffic_classifier.ml.prefix_study
+uv run --locked -m traffic_classifier.ml.forest_study
+uv run --locked -m traffic_classifier.ml.final_evaluation freeze
+```
+
+Чтобы воспроизвести итоговую оценку на test и построить график, запусти следующие команды. Отчёт, предсказания и график сохраняются в `artifacts/prefix-study-v1/`.
+
+```powershell
+uv run --locked -m traffic_classifier.ml.final_evaluation test
+uv run --locked -m traffic_classifier.ml.study_plot
+```
+
+## Пробное окно
+
+После подготовки модели окно запускается с сохранёнными весами и примерами из validation. Для интерфейса нужен Python с Tkinter. На уже подготовленном проекте достаточно одной команды.
 
 ```powershell
 uv run --locked -m traffic_classifier.preview
 ```
 
-Выбери «Видео», «Звонок» или «Передача файла», нажми «Распознать» и посмотри три оценки. В редакторе можно менять размеры, время и направления пакетов. Окно использует комплект из `artifacts/prefix-study-v1/`, сохранённый манифест и примеры из validation. [Результаты сравнения и устройство окна](docs/code-walkthrough.md).
+Выбери готовый пример или измени размер, время и направление пакета в редакторе и нажми **«Распознать»**. Окно показывает класс и три оценки модели. Его можно запускать с выключенным Docker.
 
-## Запуск
+## Код и тесты
 
-Для проекта используются Python 3.13 и [uv](https://docs.astral.sh/uv/). Открой PowerShell в папке проекта:
+- [Архитектура CNN](traffic_classifier/ml/cnn.py) и [цикл обучения](traffic_classifier/ml/training.py).
+- [Схема и аналитические запросы ClickHouse](sql/).
+- [Тесты](tests/) и [проверки GitHub Actions](.github/workflows/checks.yml).
 
 ```powershell
-Set-Location 'D:\TrafficClassifier'
-uv sync --locked
-uv run --locked -m traffic_classifier
+uv run --locked pytest -q -m "not clickhouse"
 ```
-
-Ожидаемый вывод: `Окружение TrafficClassifier работает.`
-
-`uv sync --locked` создаёт или обновляет виртуальное окружение `.venv` по файлу `uv.lock`. `pyproject.toml` хранит требования проекта, а `.python-version` задаёт версию Python. При добавлении библиотеки через `uv add` нужно сохранить изменения в `pyproject.toml` и `uv.lock` вместе.
-
-Стартовая команда проверяет, что Python запускается. Для работы с ClickHouse скопируй `.env.example` в `.env`, задай локальный пароль и выполни `docker compose up -d --wait`. Локальное окружение, реальные настройки, данные и веса модели исключены из Git.
-
-## Структура
-
-| Путь | Назначение |
-|---|---|
-| `traffic_classifier/` | Код приложения и команда запуска |
-| `traffic_classifier/ml/` | Подготовка признаков, обучение и оценка |
-| `traffic_classifier/api/` | Локальный API |
-| `data/` | Локальные файлы датасета |
-| `sql/` | Схема и аналитические запросы ClickHouse |
-| `tests/` | Проверки проекта |
-| `docs/` | Цель, план и материалы для Jira |
-
-## План и задачи
-
-- [Цель и границы первой версии](docs/project-scope.md).
-- [Разбор реализации, проверки и команды по тикетам](docs/code-walkthrough.md).
-- [План из 6 этапов и 36 задач](docs/project-plan.md).
-- [Доска TrafficClassifier в Jira](https://dmitrykuzaka.atlassian.net/jira/software/projects/KAN/boards/1).
-- [Структурированный план](docs/jira-backlog.json), [CSV для импорта](docs/jira-import-42-items.csv) и [черновик задач](docs/jira-tasks-draft.csv).
-
-У задач в плане указаны шаги, критерии готовности, зависимости и оценки. Сумма предварительных оценок — 77 часов активной работы. Время на освоение инструментов и исправления учитывается отдельно.
-
-Готовы аудит VNAT, локальный ClickHouse, очистка, разбиение и пакетные тензоры. CNN и Random Forest обучены и оценены для четырёх длин. Для пробного окна по validation выбрана CNN на первых восьми пакетах. Результаты и ограничения описаны в разборе P25–P30. Собрать переносимый комплект CNN из checkpoint и нормализатора можно командой `uv run --locked -m traffic_classifier.ml.model_bundle --n 32`. Она сохраняет `artifacts/cnn-bundles-v1/n32.pt`.
