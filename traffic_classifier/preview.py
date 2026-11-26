@@ -1,6 +1,5 @@
 """Open a local window for trying the selected packet CNN."""
 
-import json
 import tkinter as tk
 from functools import partial
 from tkinter import ttk
@@ -8,10 +7,8 @@ from tkinter import ttk
 import numpy as np
 import torch
 
+from traffic_classifier.inference import PacketInput, Predictor, load_predictor
 from traffic_classifier.ml.dataset import DEFAULT_BUNDLE, load_bundle
-from traffic_classifier.ml.final_evaluation import DEFAULT_PROTOCOL
-from traffic_classifier.ml.model_bundle import ModelBundle, load_model_bundle
-from traffic_classifier.ml.prefix_study import DEFAULT_OUTPUT
 from traffic_classifier.vnat_groups import CLASSES
 
 CLASS_NAMES = {"video": "Видео", "voice": "Звонок", "file_transfer": "Передача файла"}
@@ -55,8 +52,8 @@ def load_examples(n: int) -> dict[str, str]:
     return examples
 
 
-def build_window(root: tk.Tk, model: ModelBundle, examples: dict[str, str]) -> None:
-    n = model.normalizer.n
+def build_window(root: tk.Tk, predictor: Predictor, examples: dict[str, str]) -> None:
+    n = predictor.n
     root.title("TrafficClassifier — пробная версия")
     root.minsize(620, 500)
     style = ttk.Style(root)
@@ -111,14 +108,13 @@ def build_window(root: tk.Tk, model: ModelBundle, examples: dict[str, str]) -> N
         clear_scores()
         try:
             offset, size, direction = parse_packets(editor.get("1.0", "end-1c"), n)
-            logits = model.packet_logits(offset, size, direction)
+            result = predictor.predict(PacketInput(offset, size, direction))
         except ValueError as error:
             status.set(str(error))
             return
-        scores = torch.softmax(logits, dim=0)
-        category = DISPLAY_NAMES[int(scores.argmax())]
-        status.set(f"Результат — {category.lower()} · пакетов {len(size)} из {n}")
-        for bar, value, score in zip(bars, values, scores.tolist(), strict=True):
+        category = CLASS_NAMES[result.category]
+        status.set(f"Результат — {category.lower()} · пакетов {result.observed_packets} из {n}")
+        for bar, value, score in zip(bars, values, result.scores.values(), strict=True):
             bar.configure(value=100 * score)
             value.set(f"{100 * score:.1f}%".replace(".", ","))
 
@@ -147,18 +143,14 @@ def build_window(root: tk.Tk, model: ModelBundle, examples: dict[str, str]) -> N
 
 def main() -> None:
     try:
-        protocol = json.loads(DEFAULT_PROTOCOL.read_text(encoding="utf-8"))
-        n = protocol["selected_cnn_n"]
-        model = load_model_bundle(DEFAULT_OUTPUT / "cnn" / f"n{n}" / "model.pt", expected_n=n)
-        if model.model_id != protocol["lengths"][str(n)]["cnn_model_id"]:
-            raise ValueError("Комплект CNN отличается от версии в протоколе.")
-        examples = load_examples(n)
+        predictor = load_predictor()
+        examples = load_examples(predictor.n)
     except (OSError, ValueError) as error:
         raise SystemExit(f"Не удалось открыть пробную версию. {error}") from None
 
     torch.set_num_threads(1)
     root = tk.Tk()
-    build_window(root, model, examples)
+    build_window(root, predictor, examples)
     root.mainloop()
 
 
