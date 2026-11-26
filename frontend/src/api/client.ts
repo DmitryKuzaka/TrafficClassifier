@@ -1,3 +1,4 @@
+import { TRAFFIC_CLASSES } from "../trafficClasses";
 import type { components } from "./schema";
 
 export type PacketSequence = components["schemas"]["PredictRequest"];
@@ -7,7 +8,6 @@ export type RunStatistics = components["schemas"]["PredictionStatistics"];
 type ReadyResponse = components["schemas"]["ReadyResponse"];
 
 export const MODEL_READINESS_KEY = ["model-readiness"] as const;
-export const TRAFFIC_CLASSES = ["video", "voice", "file_transfer"] as const;
 
 const unreachable = "Не удалось связаться с FastAPI. Проверьте, запущен ли сервер.";
 const modelErrors: Record<number, string> = {
@@ -60,6 +60,10 @@ function isCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isTimestamp(value: unknown): boolean {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
 function isCompletedRun(run: CompletedRun): boolean {
   return Boolean(
     run
@@ -67,7 +71,7 @@ function isCompletedRun(run: CompletedRun): boolean {
     && typeof run.model_id === "string" && run.model_id.trim()
     && isCount(run.n) && run.n > 0
     && isCount(run.flow_count)
-    && typeof run.completed_at === "string" && Number.isFinite(Date.parse(run.completed_at)),
+    && isTimestamp(run.completed_at),
   );
 }
 
@@ -82,9 +86,23 @@ export async function getRunStatistics(runId: string, signal?: AbortSignal): Pro
     throw new Error("API вернул сводку для другого запуска.");
   }
   const totals = statistics.totals;
+  const labels = statistics.known_labels;
+  const order = labels?.class_order;
+  const matrix = labels?.confusion_matrix;
   if (
     !isCount(totals?.flows) || !isCount(totals.packets)
     || !isCount(totals.observed_packets) || !isCount(totals.bytes)
+    || !TRAFFIC_CLASSES.every((category) =>
+      isCount(statistics.by_predicted_category?.[category]?.flows))
+    || statistics.bytes_basis !== "full_flow"
+    || !isTimestamp(statistics.period_first_hour_utc)
+    || !isTimestamp(statistics.period_last_hour_utc)
+    || !Array.isArray(order) || order.length !== TRAFFIC_CLASSES.length
+    || !TRAFFIC_CLASSES.every((category) => order.includes(category))
+    || !Array.isArray(matrix) || matrix.length !== order.length
+    || !matrix.every((row) => Array.isArray(row) && row.length === order.length && row.every(isCount))
+    || !isCount(labels.correct)
+    || !Number.isFinite(labels.accuracy) || labels.accuracy < 0 || labels.accuracy > 1
   ) {
     throw new Error("API вернул сводку запуска в неожиданном формате.");
   }

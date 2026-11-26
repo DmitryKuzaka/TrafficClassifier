@@ -1,0 +1,144 @@
+.period {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.metrics > div,
+.chart {
+  min-width: 0;
+  padding: clamp(0.75rem, 2vw, 1.125rem);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.metrics > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.metrics dt,
+.metrics dd span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.metrics dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-weight: 700;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+}
+
+.chart h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.distribution {
+  display: grid;
+  gap: 1rem;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distribution li[data-category="video"] { --class-color: var(--accent); }
+.distribution li[data-category="voice"] { --class-color: var(--voice); }
+.distribution li[data-category="file_transfer"] { --class-color: var(--file); }
+
+.barLabel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.barLabel > span:last-child,
+.matrix td,
+.accuracy strong {
+  font-family: var(--mono);
+}
+
+.share,
+.matrix th {
+  color: var(--muted);
+}
+
+.track {
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.bar {
+  height: 100%;
+  background: var(--class-color);
+}
+
+.matrix {
+  width: 100%;
+  margin-top: 0.65rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.75rem;
+}
+
+.matrix th,
+.matrix td {
+  padding: 0.45rem 0.1rem;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.matrix th[scope="row"] {
+  text-align: left;
+}
+
+.matrix td[data-correct="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--field));
+}
+
+.axis,
+.accuracy {
+  margin-top: 0.65rem;
+  font-size: 0.8125rem;
+}
+
+.accuracy strong {
+  color: var(--accent);
+}
+
+@media (max-width: 800px) {
+  .charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

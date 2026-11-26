@@ -1,6 +1,7 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { getCompletedRuns, getRunStatistics } from "./api/client";
+import { RunSummary } from "./RunSummary";
 import styles from "./AnalyticsView.module.css";
 
 const utcDate = new Intl.DateTimeFormat("ru-RU", {
@@ -80,7 +81,7 @@ export function AnalyticsView({ runId, onRunChange }: Props) {
           {statistics.isPending && <p role="status">Загружаем сводку…</p>}
           {statistics.isError && <p className={styles.error} role="alert">{statistics.error.message}</p>}
           {!statistics.isError && statistics.data && (
-            <p>Потоков: <strong>{integer.format(statistics.data.totals.flows)}</strong></p>
+            <RunSummary statistics={statistics.data} />
           )}
         </section>
       )}

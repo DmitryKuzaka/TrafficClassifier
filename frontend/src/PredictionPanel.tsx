@@ -1,11 +1,6 @@
-import { type Prediction, TRAFFIC_CLASSES } from "./api/client";
+import type { Prediction } from "./api/client";
+import { classLabels, TRAFFIC_CLASSES } from "./trafficClasses";
 import styles from "./PredictionPanel.module.css";
-
-const labels = {
-  video: "Видео",
-  voice: "Голосовой звонок",
-  file_transfer: "Передача файла",
-};
 
 const percent = new Intl.NumberFormat("ru-RU", {
   style: "percent",
@@ -25,7 +20,7 @@ export function PredictionPanel({ result, error, isPending }: Props) {
     <>
       <h2 id="prediction-title">Ответ модели</h2>
       <p className={styles.announcement} role="status" aria-atomic="true">
-        {isPending ? "Модель обрабатывает пакеты…" : category ? `Предсказанный тип: ${labels[category]}` : ""}
+        {isPending ? "Модель обрабатывает пакеты…" : category ? `Предсказанный тип: ${classLabels[category]}` : ""}
       </p>
       {isPending && (
         <p className={styles.placeholder}>Модель обрабатывает пакеты…</p>
@@ -40,7 +35,7 @@ export function PredictionPanel({ result, error, isPending }: Props) {
         <div className={styles.result}>
           <div className={styles.category} data-category={category}>
             <span>Предсказанный тип</span>
-            <strong>{labels[category]}</strong>
+            <strong>{classLabels[category]}</strong>
           </div>
           <h3 className={styles.scoreHeading}>Оценки классов</h3>
           <ul className={styles.scores}>
@@ -49,7 +44,7 @@ export function PredictionPanel({ result, error, isPending }: Props) {
               return (
                 <li key={item} data-category={item}>
                   <div className={styles.scoreLabel}>
-                    <span>{labels[item]}</span>
+                    <span>{classLabels[item]}</span>
                     <span className={styles.value}>{percent.format(score)}</span>
                   </div>
                   <div className={styles.track} aria-hidden="true">
