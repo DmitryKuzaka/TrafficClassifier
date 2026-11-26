@@ -29,7 +29,12 @@ def test_api_loads_model_once_and_reports_prediction():
             assert tuple(data["scores"]) == CLASSES
             assert sum(data["scores"].values()) == pytest.approx(1.0)
             assert data["category"] == max(data["scores"], key=data["scores"].get)
-        assert client.get("/docs").status_code == 200
+        redirect = client.get("/", follow_redirects=False)
+        assert redirect.status_code == 307
+        assert redirect.headers["location"] == "/docs"
+        docs = client.get("/")
+        assert docs.status_code == 200
+        assert "Swagger UI" in docs.text
         assert "/api/v1/predict" in client.get("/openapi.json").json()["paths"]
         assert calls == 1
 

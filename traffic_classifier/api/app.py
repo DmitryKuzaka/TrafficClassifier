@@ -8,6 +8,7 @@ from typing import Annotated
 
 from clickhouse_connect.driver.exceptions import ClickHouseError
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from traffic_classifier.clickhouse_client import connect
@@ -54,6 +55,10 @@ def create_app(loader: Callable[[], Predictor] = load_predictor) -> FastAPI:
 
     app = FastAPI(title="TrafficClassifier", version="1.0", lifespan=lifespan)
     app.state.predictor = None
+
+    @app.get("/", include_in_schema=False)
+    def open_swagger() -> RedirectResponse:
+        return RedirectResponse("/docs")
 
     @app.get("/ready")
     def ready(request: Request) -> dict:

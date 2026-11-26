@@ -75,7 +75,7 @@ uv run --locked -m traffic_classifier.preview
 uv run --locked uvicorn traffic_classifier.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-Открой [Swagger](http://127.0.0.1:8000/docs). `GET /ready` показывает выбранную модель, а `POST /api/v1/predict` принимает три массива одной длины. Пример запроса:
+Открой [http://127.0.0.1:8000](http://127.0.0.1:8000). Главный адрес автоматически перенаправляет в [Swagger](http://127.0.0.1:8000/docs). `GET /ready` показывает выбранную модель, а `POST /api/v1/predict` принимает три массива одной длины. Пример запроса:
 
 ```json
 {
