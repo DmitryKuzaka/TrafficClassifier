@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+  --background: #10151f;
+  --surface: #192231;
+  --field: #111a27;
+  --border: #354258;
+  --text: #edf3fb;
+  --muted: #aebcd0;
+  --accent: #52d6b4;
+  --voice: #f2ba6f;
+  --file: #a8a3ff;
+  --danger: #ffaba6;
+  color: var(--text);
+  background: var(--background);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 0;
+  margin: 0;
+  background: radial-gradient(ellipse at top, #172339 0, transparent 48rem);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
