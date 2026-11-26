@@ -1,6 +1,8 @@
 import { type FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import type { PacketSequence } from "./api/client";
+
 import {
   blankPacket,
   examplePackets,
@@ -91,7 +93,13 @@ function focusField(form: HTMLFormElement | null, name: string) {
   }
 }
 
-export function PacketEditor() {
+type PacketEditorProps = {
+  onPredict: (packets: PacketSequence) => void;
+  onEdit: () => void;
+  isPending: boolean;
+};
+
+export function PacketEditor({ onPredict, onEdit, isPending }: PacketEditorProps) {
   const [rows, setRows] = useState<readonly PacketRow[]>(() => [blankPacket(0, true)]);
   const [submitted, setSubmitted] = useState(false);
   const form = useRef<HTMLFormElement>(null);
@@ -108,6 +116,7 @@ export function PacketEditor() {
   }, [rows]);
 
   function loadExample() {
+    onEdit();
     nextId.current = examplePackets.length;
     setSubmitted(false);
     setRows(examplePackets);
@@ -117,22 +126,26 @@ export function PacketEditor() {
     if (rows.length >= MAX_PACKETS) {
       return;
     }
+    onEdit();
     const id = nextId.current++;
     pendingFocus.current = `time-${id}`;
     setRows((current) => [...current, blankPacket(id)]);
   }
 
   function updatePacket(id: number, patch: Partial<PacketRow>) {
+    onEdit();
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
   }
 
   function removePacket(index: number) {
+    onEdit();
     const target = rows[index + 1] ?? rows[index - 1];
     pendingFocus.current = `size-${target.id}`;
     setRows((current) => current.filter((_, position) => position !== index));
   }
 
   function clearPackets() {
+    onEdit();
     nextId.current = 1;
     pendingFocus.current = "size-0";
     setSubmitted(false);
@@ -141,8 +154,11 @@ export function PacketEditor() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isPending) {
+      return;
+    }
     if (validation.ok) {
-      setSubmitted(true);
+      onPredict(validation.packets);
       return;
     }
 
@@ -189,10 +205,11 @@ export function PacketEditor() {
         <span className={styles.count}>Пакетов: {rows.length} / {MAX_PACKETS}</span>
       </div>
       {errors && <p className={styles.feedback} role="alert">Исправьте отмеченные поля.</p>}
-      {submitted && validation.ok && <p className={styles.feedback} role="status">Пакеты готовы к отправке.</p>}
 
       <div className={styles.footer}>
-        <button className={styles.primary} type="submit">Проверить ввод</button>
+        <button className={styles.primary} type="submit" disabled={isPending}>
+          {isPending ? "Распознаём…" : "Распознать"}
+        </button>
         <button className={styles.secondary} type="button" onClick={clearPackets}>Очистить</button>
       </div>
     </form>

@@ -130,12 +130,6 @@
   letter-spacing: -0.02em;
 }
 
-.empty {
-  margin: 1rem 0 0;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
 @media (max-width: 800px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr);

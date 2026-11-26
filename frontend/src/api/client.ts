@@ -4,6 +4,9 @@ export type PacketSequence = components["schemas"]["PredictRequest"];
 export type Prediction = components["schemas"]["Prediction"];
 type ReadyResponse = components["schemas"]["ReadyResponse"];
 
+export const MODEL_READINESS_KEY = ["model-readiness"] as const;
+export const TRAFFIC_CLASSES = ["video", "voice", "file_transfer"] as const;
+
 const unreachable = "Не удалось связаться с FastAPI. Проверьте, запущен ли сервер.";
 
 async function requestJson<Result>(path: string, options?: RequestInit): Promise<Result> {
@@ -51,11 +54,29 @@ export async function getModelReadiness(signal?: AbortSignal): Promise<ReadyResp
   return ready;
 }
 
-export function predictTraffic(packets: PacketSequence, signal?: AbortSignal) {
-  return requestJson<Prediction>("/api/v1/predict", {
+export async function predictTraffic(packets: PacketSequence, signal?: AbortSignal): Promise<Prediction> {
+  const result = await requestJson<Prediction>("/api/v1/predict", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(packets),
     signal,
   });
+
+  const scoresAreValid = TRAFFIC_CLASSES.every((category) => {
+    const score = result?.scores?.[category];
+    return typeof score === "number" && Number.isFinite(score) && score >= 0 && score <= 1;
+  });
+  if (
+    !scoresAreValid
+    || !TRAFFIC_CLASSES.some((category) => category === result.category)
+    || typeof result.model_id !== "string"
+    || result.model_id.trim() === ""
+    || !Number.isInteger(result.n)
+    || !Number.isInteger(result.observed_packets)
+    || result.observed_packets < 1
+    || result.observed_packets > result.n
+  ) {
+    throw new Error("API вернул ответ модели в неожиданном формате.");
+  }
+  return result;
 }

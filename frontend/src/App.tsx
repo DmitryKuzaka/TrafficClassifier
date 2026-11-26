@@ -1,9 +1,45 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+
+import { MODEL_READINESS_KEY, type PacketSequence, predictTraffic } from "./api/client";
 import { ModelStatus } from "./ModelStatus";
 import { PacketEditor } from "./PacketEditor";
-
+import { PredictionPanel } from "./PredictionPanel";
 import styles from "./App.module.css";
 
 export function App() {
+  const queryClient = useQueryClient();
+  const requestController = useRef<AbortController | null>(null);
+  const prediction = useMutation({
+    mutationFn: ({ packets, signal }: { packets: PacketSequence; signal: AbortSignal }) =>
+      predictTraffic(packets, signal),
+    networkMode: "always",
+    onSettled: async (_result, _error, { signal }) => {
+      if (signal.aborted) {
+        return;
+      }
+      await queryClient.cancelQueries({ queryKey: MODEL_READINESS_KEY });
+      if (!signal.aborted) {
+        void queryClient.invalidateQueries({ queryKey: MODEL_READINESS_KEY });
+      }
+    },
+  });
+
+  useEffect(() => () => requestController.current?.abort(), []);
+
+  function requestPrediction(packets: PacketSequence) {
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
+    prediction.mutate({ packets, signal: controller.signal });
+  }
+
+  function clearPrediction() {
+    requestController.current?.abort();
+    requestController.current = null;
+    prediction.reset();
+  }
+
   return (
     <>
       <header className={styles.header}>
@@ -32,12 +68,19 @@ export function App() {
 
         <div className={styles.workspace}>
           <section className={styles.panel} aria-labelledby="packets-title">
-            <PacketEditor />
+            <PacketEditor
+              onPredict={requestPrediction}
+              onEdit={clearPrediction}
+              isPending={prediction.isPending}
+            />
           </section>
 
           <section className={styles.panel} aria-labelledby="prediction-title">
-            <h2 id="prediction-title">Ответ модели</h2>
-            <p className={styles.empty}>Здесь появится результат распознавания.</p>
+            <PredictionPanel
+              result={prediction.data}
+              error={prediction.error?.message}
+              isPending={prediction.isPending}
+            />
           </section>
         </div>
       </main>

@@ -1,0 +1,131 @@
+.announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.placeholder,
+.error {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.error {
+  border-color: #875250;
+  background: #30242d;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.result {
+  margin-top: 1.25rem;
+}
+
+.result [data-category="video"] { --class-color: var(--accent); }
+.result [data-category="voice"] { --class-color: var(--voice); }
+.result [data-category="file_transfer"] { --class-color: var(--file); }
+
+.category {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--class-color) 36%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--class-color) 12%, var(--field));
+}
+
+.category span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.category strong {
+  color: var(--class-color);
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  line-height: 1.2;
+}
+
+.scoreHeading {
+  margin: 1.25rem 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+.scores {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scoreLabel,
+.packetCount {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.scoreLabel {
+  margin-bottom: 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.value {
+  color: var(--class-color);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--class-color);
+}
+
+.details {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1.25rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+}
+
+.details dt {
+  color: var(--muted);
+}
+
+.details dd {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.packetCount dd,
+.modelId {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.modelId {
+  color: var(--muted);
+  font-size: 0.73rem;
+  overflow-wrap: anywhere;
+}

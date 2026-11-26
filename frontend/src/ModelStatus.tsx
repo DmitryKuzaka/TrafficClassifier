@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getModelReadiness } from "./api/client";
+import { getModelReadiness, MODEL_READINESS_KEY } from "./api/client";
 import styles from "./ModelStatus.module.css";
 
 export function ModelStatus() {
   const readiness = useQuery({
-    queryKey: ["model-readiness"],
+    queryKey: MODEL_READINESS_KEY,
     queryFn: ({ signal }) => getModelReadiness(signal),
+    networkMode: "always",
     retry: false,
   });
 
