@@ -59,7 +59,19 @@ uv run --locked -m traffic_classifier.ml.study_plot
 
 ## Запуск фронтенда
 
-Понадобится Node.js 24. Запусти FastAPI по инструкции ниже в первом терминале. Во втором терминале выполни из корня репозитория.
+Понадобится Node.js 24. Для локальной демонстрации собери интерфейс и запусти FastAPI из корня репозитория.
+
+```powershell
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run build
+uv run --locked uvicorn traffic_classifier.api.app:app --host 127.0.0.1 --port 8000
+```
+
+Открой [веб-интерфейс на /app/](http://127.0.0.1:8000/app/). FastAPI подключает сборку, если при запуске есть `frontend/dist/index.html`. Для появления первой сборки перезапусти уже работающий API после `npm.cmd --prefix frontend run build`.
+
+### Разработка с Vite
+
+Запусти FastAPI в первом терминале. Во втором выполни из корня репозитория.
 
 ```powershell
 cd frontend

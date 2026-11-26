@@ -62,3 +62,28 @@ def test_api_reports_unavailable_bundle(error):
     with TestClient(create_app(missing)) as client:
         assert client.get("/ready").status_code == 503
         assert client.post("/api/v1/predict", json=PACKETS).status_code == 503
+
+
+def test_frontend_mount_is_optional_and_preserves_api(tmp_path):
+    dist = tmp_path / "dist"
+    with TestClient(create_app(lambda: None, frontend_dist=dist)) as client:
+        assert client.get("/app/").status_code == 404
+        assert client.get("/docs").status_code == 200
+        assert client.get("/ready").status_code == 503
+
+    assets = dist / "assets"
+    assets.mkdir(parents=True)
+    (dist / "index.html").write_text(
+        '<link rel="stylesheet" href="/app/assets/index.css"><main>TrafficClassifier</main>',
+        encoding="utf-8",
+    )
+    (assets / "index.css").write_text("body { color: white; }", encoding="utf-8")
+    with TestClient(create_app(lambda: None, frontend_dist=dist)) as client:
+        assert client.get("/app", follow_redirects=False).headers["location"].endswith("/app/")
+        assert "TrafficClassifier" in client.get("/app/").text
+        css = client.get("/app/assets/index.css")
+        assert css.status_code == 200
+        assert css.headers["content-type"].startswith("text/css")
+        assert client.get("/docs").status_code == 200
+        assert client.get("/ready").status_code == 503
+        assert "/api/v1/runs" in client.get("/openapi.json").json()["paths"]

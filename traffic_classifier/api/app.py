@@ -3,12 +3,14 @@
 import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from pickle import UnpicklingError
 from typing import Annotated, Literal
 
 from clickhouse_connect.driver.exceptions import ClickHouseError
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from traffic_classifier.clickhouse_client import connect
@@ -25,6 +27,7 @@ from traffic_classifier.prediction_statistics import (
 from traffic_classifier.vnat_groups import PREFIX_LENGTHS
 
 logger = logging.getLogger(__name__)
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 class PredictRequest(BaseModel):
@@ -47,7 +50,9 @@ def require_model(request: Request) -> Predictor:
     return predictor
 
 
-def create_app(loader: Callable[[], Predictor] = load_predictor) -> FastAPI:
+def create_app(
+    loader: Callable[[], Predictor] = load_predictor, *, frontend_dist: Path = FRONTEND_DIST
+) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         try:
@@ -118,6 +123,9 @@ def create_app(loader: Callable[[], Predictor] = load_predictor) -> FastAPI:
         except (ClickHouseError, OSError, RuntimeError, ValueError) as error:
             logger.warning("Could not read prediction statistics: %s", error)
             raise HTTPException(503, "ClickHouse statistics are unavailable.") from error
+
+    if (frontend_dist / "index.html").is_file():
+        app.mount("/app", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
     return app
 
