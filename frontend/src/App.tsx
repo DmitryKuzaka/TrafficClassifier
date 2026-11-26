@@ -1,3 +1,5 @@
+import { ModelStatus } from "./ModelStatus";
+
 import styles from "./App.module.css";
 
 export function App() {
@@ -17,6 +19,7 @@ export function App() {
             <a href="#recognition" aria-current="page">Распознавание</a>
             <button type="button" disabled>Аналитика</button>
           </nav>
+          <ModelStatus />
         </div>
       </header>
 

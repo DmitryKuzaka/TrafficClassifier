@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pickle import UnpicklingError
-from typing import Annotated
+from typing import Annotated, Literal
 
 from clickhouse_connect.driver.exceptions import ClickHouseError
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -26,6 +26,12 @@ class PredictRequest(BaseModel):
     offsets_us: list[int] = Field(min_length=1, max_length=MAX_PACKETS, examples=[[0, 2000, 5250]])
     sizes_bytes: list[int] = Field(min_length=1, max_length=MAX_PACKETS, examples=[[100, 300, 180]])
     directions: list[int] = Field(min_length=1, max_length=MAX_PACKETS, examples=[[1, 0, 1]])
+
+
+class ReadyResponse(BaseModel):
+    status: Literal["ready"]
+    model_id: str
+    n: int
 
 
 def require_model(request: Request) -> Predictor:
@@ -61,9 +67,9 @@ def create_app(loader: Callable[[], Predictor] = load_predictor) -> FastAPI:
         return RedirectResponse("/docs")
 
     @app.get("/ready")
-    def ready(request: Request) -> dict:
+    def ready(request: Request) -> ReadyResponse:
         predictor = require_model(request)
-        return {"status": "ready", "model_id": predictor.model_id, "n": predictor.n}
+        return ReadyResponse(status="ready", model_id=predictor.model_id, n=predictor.n)
 
     @app.post(
         "/api/v1/predict",
