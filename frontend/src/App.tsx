@@ -1,4 +1,5 @@
 import { ModelStatus } from "./ModelStatus";
+import { PacketEditor } from "./PacketEditor";
 
 import styles from "./App.module.css";
 
@@ -31,7 +32,7 @@ export function App() {
 
         <div className={styles.workspace}>
           <section className={styles.panel} aria-labelledby="packets-title">
-            <h2 id="packets-title">Пакеты потока</h2>
+            <PacketEditor />
           </section>
 
           <section className={styles.panel} aria-labelledby="prediction-title">
