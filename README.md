@@ -57,6 +57,18 @@ uv run --locked -m traffic_classifier.ml.final_evaluation test
 uv run --locked -m traffic_classifier.ml.study_plot
 ```
 
+## Запуск фронтенда
+
+Понадобится Node.js 24. Запусти FastAPI по инструкции ниже в первом терминале. Во втором терминале выполни из корня репозитория.
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run dev
+```
+
+Открой адрес, который напечатает Vite, обычно [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite отправляет запросы к FastAPI на порт 8000. Если запускаешь API на другом порту, перед `npm.cmd run dev` задай его в этом же терминале, например `$env:TRAFFICCLASSIFIER_API_URL = "http://127.0.0.1:8001"`.
+
 ## Пробное окно
 
 После подготовки модели окно запускается с сохранёнными весами и примерами из validation. Для интерфейса нужен Python с Tkinter. На уже подготовленном проекте достаточно одной команды.
