@@ -15,7 +15,13 @@ from traffic_classifier.clickhouse_client import connect
 from traffic_classifier.inference import PacketInput, Prediction, Predictor, load_predictor
 from traffic_classifier.ml.dataset import MAX_PACKETS
 from traffic_classifier.ml.packets import InvalidPackets
-from traffic_classifier.prediction_statistics import RunNotFound, prediction_statistics
+from traffic_classifier.prediction_statistics import (
+    CompletedRun,
+    PredictionStatistics,
+    RunNotFound,
+    completed_runs,
+    prediction_statistics,
+)
 from traffic_classifier.vnat_groups import PREFIX_LENGTHS
 
 logger = logging.getLogger(__name__)
@@ -87,12 +93,21 @@ def create_app(loader: Callable[[], Predictor] = load_predictor) -> FastAPI:
         except InvalidPackets as error:
             raise HTTPException(422, str(error)) from error
 
+    @app.get("/api/v1/runs")
+    def list_runs() -> list[CompletedRun]:
+        try:
+            with connect() as client:
+                return completed_runs(client)
+        except (ClickHouseError, OSError, RuntimeError, ValueError) as error:
+            logger.warning("Could not list completed prediction runs: %s", error)
+            raise HTTPException(503, "ClickHouse prediction runs are unavailable.") from error
+
     @app.get("/api/v1/statistics")
     def statistics(
         run_id: Annotated[str | None, Query(pattern="^[0-9a-f]{64}$")] = None,
         model_id: str | None = None,
         n: int | None = None,
-    ) -> dict:
+    ) -> PredictionStatistics:
         if n is not None and n not in PREFIX_LENGTHS:
             raise HTTPException(422, f"Expected packet count in {PREFIX_LENGTHS}.")
         try:

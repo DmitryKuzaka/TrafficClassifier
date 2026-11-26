@@ -26,6 +26,7 @@ def test_statistics_reports_unavailable_database(monkeypatch):
         assert response.status_code == 503
         assert response.json()["detail"] == "ClickHouse statistics are unavailable."
         assert client.get("/api/v1/statistics", params={"n": 9}).status_code == 422
+        assert client.get("/api/v1/runs").status_code == 503
 
 
 def make_predictor(n):
@@ -63,6 +64,8 @@ def test_import_predict_recover_and_report(tmp_path, monkeypatch):
         admin.command(f"CREATE DATABASE {database}")
         try:
             monkeypatch.setenv("CLICKHOUSE_DATABASE", database)
+            with TestClient(api.create_app(lambda: None)) as client:
+                assert client.get("/api/v1/runs").json() == []
             with connect() as reader, connect() as writer:
                 import_vnat.run_import(writer, source, None)
                 predictor = make_predictor(8)
@@ -78,12 +81,20 @@ def test_import_predict_recover_and_report(tmp_path, monkeypatch):
                         batch_predictions.run_batch(reader, writer, predictor)
                 with pytest.raises(RunNotFound):
                     prediction_statistics(reader)
+                with TestClient(api.create_app(lambda: None)) as client:
+                    assert client.get("/api/v1/runs").json() == []
 
                 run = batch_predictions.run_batch(reader, writer, predictor)
                 expected = prediction_statistics(reader, run_id=run.run_id)
                 assert batch_predictions.run_batch(reader, writer, predictor) == run
                 another = batch_predictions.run_batch(reader, writer, make_predictor(16))
                 assert another.run_id != run.run_id
+                writer.command(
+                    "INSERT INTO prediction_runs "
+                    "SELECT * FROM prediction_runs "
+                    "WHERE run_id = {id:String} AND status = 'completed'",
+                    parameters={"id": another.run_id},
+                )
                 assert expected["totals"] == {
                     "flows": 3,
                     "packets": 6,
@@ -98,6 +109,10 @@ def test_import_predict_recover_and_report(tmp_path, monkeypatch):
                 )
 
             with TestClient(api.create_app(lambda: predictor)) as client:
+                completed = client.get("/api/v1/runs").json()
+                assert [item["run_id"] for item in completed] == [another.run_id, run.run_id]
+                assert [(item["n"], item["flow_count"]) for item in completed] == [(16, 3), (8, 3)]
+                assert all(item["completed_at"].endswith("Z") for item in completed)
                 assert (
                     client.get("/api/v1/statistics", params={"run_id": run.run_id}).json()
                     == expected

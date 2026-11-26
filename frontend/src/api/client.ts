@@ -2,14 +2,28 @@ import type { components } from "./schema";
 
 export type PacketSequence = components["schemas"]["PredictRequest"];
 export type Prediction = components["schemas"]["Prediction"];
+export type CompletedRun = components["schemas"]["CompletedRun"];
+export type RunStatistics = components["schemas"]["PredictionStatistics"];
 type ReadyResponse = components["schemas"]["ReadyResponse"];
 
 export const MODEL_READINESS_KEY = ["model-readiness"] as const;
 export const TRAFFIC_CLASSES = ["video", "voice", "file_transfer"] as const;
 
 const unreachable = "Не удалось связаться с FastAPI. Проверьте, запущен ли сервер.";
+const modelErrors: Record<number, string> = {
+  422: "API отклонил запрос. Проверьте время, размеры и направления пакетов.",
+  503: "Модель недоступна. Проверьте сохранённые веса и перезапустите FastAPI.",
+};
+const analyticsErrors: Record<number, string> = {
+  404: "Выбранный запуск больше недоступен. Обновите список запусков.",
+  503: "ClickHouse недоступен. Проверьте, запущена ли база, и повторите запрос.",
+};
 
-async function requestJson<Result>(path: string, options?: RequestInit): Promise<Result> {
+async function requestJson<Result>(
+  path: string,
+  options?: RequestInit,
+  errors = modelErrors,
+): Promise<Result> {
   let response: Response;
   try {
     response = await fetch(path, options);
@@ -20,14 +34,8 @@ async function requestJson<Result>(path: string, options?: RequestInit): Promise
     throw new Error(unreachable, { cause: error });
   }
 
-  if (response.status === 422) {
-    throw new Error("API отклонил запрос. Проверьте время, размеры и направления пакетов.");
-  }
-  if (response.status === 503) {
-    throw new Error("Модель недоступна. Проверьте сохранённые веса и перезапустите FastAPI.");
-  }
   if (!response.ok) {
-    throw new Error(`${unreachable} Код ответа: ${response.status}.`);
+    throw new Error(errors[response.status] ?? `${unreachable} Код ответа: ${response.status}.`);
   }
 
   try {
@@ -38,6 +46,49 @@ async function requestJson<Result>(path: string, options?: RequestInit): Promise
     }
     throw new Error("API вернул ответ в неожиданном формате.", { cause: error });
   }
+}
+
+export async function getCompletedRuns(signal?: AbortSignal): Promise<CompletedRun[]> {
+  const runs = await requestJson<CompletedRun[]>("/api/v1/runs", { signal }, analyticsErrors);
+  if (!Array.isArray(runs) || !runs.every(isCompletedRun)) {
+    throw new Error("API вернул список запусков в неожиданном формате.");
+  }
+  return runs;
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isCompletedRun(run: CompletedRun): boolean {
+  return Boolean(
+    run
+    && typeof run.run_id === "string" && /^[0-9a-f]{64}$/.test(run.run_id)
+    && typeof run.model_id === "string" && run.model_id.trim()
+    && isCount(run.n) && run.n > 0
+    && isCount(run.flow_count)
+    && typeof run.completed_at === "string" && Number.isFinite(Date.parse(run.completed_at)),
+  );
+}
+
+export async function getRunStatistics(runId: string, signal?: AbortSignal): Promise<RunStatistics> {
+  const params = new URLSearchParams({ run_id: runId });
+  const statistics = await requestJson<RunStatistics>(
+    `/api/v1/statistics?${params}`,
+    { signal },
+    analyticsErrors,
+  );
+  if (statistics?.run_id !== runId) {
+    throw new Error("API вернул сводку для другого запуска.");
+  }
+  const totals = statistics.totals;
+  if (
+    !isCount(totals?.flows) || !isCount(totals.packets)
+    || !isCount(totals.observed_packets) || !isCount(totals.bytes)
+  ) {
+    throw new Error("API вернул сводку запуска в неожиданном формате.");
+  }
+  return statistics;
 }
 
 export async function getModelReadiness(signal?: AbortSignal): Promise<ReadyResponse> {

@@ -82,9 +82,12 @@
   color: var(--text);
 }
 
-.navigation button:disabled {
+.navigation a:not([aria-current]) {
   color: var(--muted);
-  opacity: 0.7;
+}
+
+.navigation a:hover {
+  color: var(--text);
 }
 
 .main {

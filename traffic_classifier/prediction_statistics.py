@@ -1,6 +1,8 @@
 """Read aggregates for a single completed historical prediction run."""
 
-from datetime import UTC
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Literal, TypedDict
 
 from clickhouse_connect.driver.client import Client
 
@@ -12,9 +14,62 @@ class RunNotFound(ValueError):
     """There is no completed run for the filters."""
 
 
+@dataclass(frozen=True)
+class CompletedRun:
+    run_id: str
+    model_id: str
+    n: int
+    flow_count: int
+    completed_at: datetime
+
+
+class Totals(TypedDict):
+    flows: int
+    packets: int
+    observed_packets: int
+    bytes: int
+
+
+class KnownLabels(TypedDict):
+    correct: int
+    accuracy: float
+    class_order: list[str]
+    confusion_matrix: list[list[int]]
+
+
+class PredictionStatistics(TypedDict):
+    run_id: str
+    import_id: str
+    model_id: str
+    n: int
+    source: Literal["historical_vnat"]
+    bytes_basis: Literal["full_flow"]
+    period_first_hour_utc: str
+    period_last_hour_utc: str
+    totals: Totals
+    by_predicted_category: dict[str, Totals]
+    bytes_by_start_hour_utc: dict[str, dict[str, int]]
+    known_labels: KnownLabels
+
+
+def completed_runs(client: Client) -> list[CompletedRun]:
+    if not client.command("EXISTS TABLE prediction_runs"):
+        return []
+
+    rows = client.query(
+        "SELECT toString(run_id), model_id, n, flow_count, recorded_at "
+        "FROM prediction_runs WHERE status = 'completed' "
+        "ORDER BY recorded_at DESC, run_id DESC LIMIT 1 BY run_id"
+    ).result_rows
+    return [
+        CompletedRun(run_id, model_id, n, count, recorded_at.replace(tzinfo=UTC))
+        for run_id, model_id, n, count, recorded_at in rows
+    ]
+
+
 def prediction_statistics(
     client: Client, *, run_id: str | None = None, model_id: str | None = None, n: int | None = None
-) -> dict:
+) -> PredictionStatistics:
     if n is not None and n not in PREFIX_LENGTHS:
         raise ValueError(f"Expected packet count in {PREFIX_LENGTHS}.")
     if not client.command("EXISTS TABLE prediction_runs"):
@@ -43,7 +98,7 @@ def prediction_statistics(
     query = (SQL_DIR / "prediction_statistics.sql").read_text(encoding="utf-8")
     aggregate_rows = client.query(query, parameters={"run_id": selected}).result_rows
 
-    by_category = {
+    by_category: dict[str, Totals] = {
         label: {"flows": 0, "packets": 0, "observed_packets": 0, "bytes": 0} for label in CLASSES
     }
     by_hour = {}
@@ -58,9 +113,11 @@ def prediction_statistics(
         by_hour.setdefault(stamp, dict.fromkeys(CLASSES, 0))[predicted] += size
         confusion[index[truth]][index[predicted]] += count
 
-    totals = {
-        field: sum(category[field] for category in by_category.values())
-        for field in ("flows", "packets", "observed_packets", "bytes")
+    totals: Totals = {
+        "flows": sum(category["flows"] for category in by_category.values()),
+        "packets": sum(category["packets"] for category in by_category.values()),
+        "observed_packets": sum(category["observed_packets"] for category in by_category.values()),
+        "bytes": sum(category["bytes"] for category in by_category.values()),
     }
     if not expected or totals["flows"] != expected:
         raise RuntimeError(f"Joined flows do not match completed prediction run {selected}.")

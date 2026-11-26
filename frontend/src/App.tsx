@@ -1,13 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { AnalyticsView } from "./AnalyticsView";
 import { MODEL_READINESS_KEY, type PacketSequence, predictTraffic } from "./api/client";
 import { ModelStatus } from "./ModelStatus";
 import { PacketEditor } from "./PacketEditor";
 import { PredictionPanel } from "./PredictionPanel";
 import styles from "./App.module.css";
 
+function getSection() {
+  return window.location.hash === "#analytics" ? "analytics" : "recognition";
+}
+
 export function App() {
+  const [section, setSection] = useState(getSection);
+  const [runId, setRunId] = useState<string | null>(null);
+  const analytics = section === "analytics";
   const queryClient = useQueryClient();
   const requestController = useRef<AbortController | null>(null);
   const prediction = useMutation({
@@ -26,6 +34,15 @@ export function App() {
   });
 
   useEffect(() => () => requestController.current?.abort(), []);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setSection(getSection());
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   function requestPrediction(packets: PacketSequence) {
     requestController.current?.abort();
@@ -53,36 +70,47 @@ export function App() {
             Traffic<span>Classifier</span>
           </a>
           <nav className={styles.navigation} aria-label="Разделы">
-            <a href="#recognition" aria-current="page">Распознавание</a>
-            <button type="button" disabled>Аналитика</button>
+            <a href="#recognition" aria-current={!analytics ? "page" : undefined}>Распознавание</a>
+            <a href="#analytics" aria-current={analytics ? "page" : undefined}>Аналитика</a>
           </nav>
           <ModelStatus />
         </div>
       </header>
 
-      <main className={styles.main} id="recognition">
-        <div className={styles.intro}>
-          <h1>Распознавание трафика</h1>
-          <p>Узнайте тип трафика по первым пакетам сетевого потока.</p>
-        </div>
+      <main className={styles.main}>
+        <div hidden={analytics}>
+          <div className={styles.intro}>
+            <h1>Распознавание трафика</h1>
+            <p>Узнайте тип трафика по первым пакетам сетевого потока.</p>
+          </div>
 
-        <div className={styles.workspace}>
-          <section className={styles.panel} aria-labelledby="packets-title">
-            <PacketEditor
-              onPredict={requestPrediction}
-              onEdit={clearPrediction}
-              isPending={prediction.isPending}
-            />
-          </section>
+          <div className={styles.workspace}>
+            <section className={styles.panel} aria-labelledby="packets-title">
+              <PacketEditor
+                onPredict={requestPrediction}
+                onEdit={clearPrediction}
+                isPending={prediction.isPending}
+              />
+            </section>
 
-          <section className={styles.panel} aria-labelledby="prediction-title">
-            <PredictionPanel
-              result={prediction.data}
-              error={prediction.error?.message}
-              isPending={prediction.isPending}
-            />
-          </section>
+            <section className={styles.panel} aria-labelledby="prediction-title">
+              <PredictionPanel
+                result={prediction.data}
+                error={prediction.error?.message}
+                isPending={prediction.isPending}
+              />
+            </section>
+          </div>
         </div>
+        {analytics && (
+          <>
+            <div className={styles.intro}>
+              <h1>Аналитика трафика</h1>
+              <p>Исторические потоки VNAT и результаты пакетного распознавания.</p>
+            </div>
+            <AnalyticsView runId={runId} onRunChange={setRunId} />
+          </>
+        )}
       </main>
     </>
   );
